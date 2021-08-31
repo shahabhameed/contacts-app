@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: contacts
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api
@@ -46,7 +46,7 @@ spec:
     port: 80
     protocol: TCP
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: api
@@ -62,10 +62,13 @@ spec:
   - host: minikube.local
     http:
       paths:
-      - path: /contacts
-        backend:
-          serviceName: api
-          servicePort: 80
+        - path: /contacts
+          pathType: Prefix
+          backend:
+            service:
+              name: api
+              port:
+                number: 80
 ---
 apiVersion: v1     
 kind: Secret

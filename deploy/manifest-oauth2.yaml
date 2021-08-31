@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: authc
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
@@ -26,32 +26,19 @@ spec:
         - --email-domain=*
         - --upstream=file:///dev/null
         - --https-address=0.0.0.0:4180
-        - --tls-cert=/etc/certs/tls.crt
-        - --tls-key=/etc/certs/tls.key
-        - --set-xauthrequest
         env:
         - name: OAUTH2_PROXY_CLIENT_ID
-          value: aee9dda64aaf9f03ba35
-        - name: OAUTH2_PROXY_CLIENT_SECRET
-          value: 6974240d62bed0b29aacdb6704611189c27d04f6
+          value: 788e9c977b94ac2b3b7d
+        - name: OAUTH2_PROXY_CLIENT_SECRET          
+          value: eb37dd51dcf2ac48567fc0e3b359ca8743d0ac9b
         - name: OAUTH2_PROXY_COOKIE_SECRET
           value: LJQqVzZY28O4hXj1DVc0lA==
-        #image: docker.io/colemickens/oauth2_proxy:latest
-        #image: docker.io/a5huynh/oauth2_proxy:latest
-        image: docker.io/johnbelamaric/oauth2_proxy:latest
+        image: quay.io/oauth2-proxy/oauth2-proxy:latest
         imagePullPolicy: Always
         name: oauth2-proxy
         ports:
         - containerPort: 4180
           protocol: TCP
-        volumeMounts:
-        - name: oauth2-proxy-tls
-          mountPath: /etc/certs
-          readOnly: true
-      volumes:
-      - name: oauth2-proxy-tls
-        secret:
-          secretName: oauth2-proxy
 ---
 apiVersion: v1
 kind: Service
@@ -69,28 +56,25 @@ spec:
   selector:
     app: oauth2-proxy
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: oauth2-proxy
   namespace: authc
   annotations:
     kubernetes.io/ingress.class: nginx
-    ingress.kubernetes.io/secure-backends: "true"
-    ingress.kubernetes.io/secure-verify-ca-secret: ca
 spec:
-  tls:
-  - hosts:
-    - minikube.local
-    secretName: minikube
   rules:
   - host: minikube.local
     http:
       paths:
       - path: /oauth2
+        pathType: Prefix
         backend:
-          serviceName: oauth2-proxy
-          servicePort: 4180
+            service:
+              name: oauth2-proxy
+              port:
+                number: 4180
 ---
 apiVersion: v1
 kind: Secret

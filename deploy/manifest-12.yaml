@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: contacts
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api
@@ -27,15 +27,15 @@ spec:
         args:
         - -dsn
         - api:mypassword@tcp(mysql.db:3306)/contacts?charset=utf8&parseTime=True
-        - -s
-        - :443
-        - -cert
-        - /etc/certs/tls.crt
-        - -key
-        - /etc/certs/tls.key
+        #- -s
+        #- :443
+        #- -cert
+        #- /etc/certs/tls.crt
+        #- -key
+        #- /etc/certs/tls.key
         ports:
-        - containerPort: 443
-          name: https
+        - containerPort: 80
+          name: http
           protocol: TCP
         volumeMounts: 
         - name: contacts-tls
@@ -58,18 +58,19 @@ spec:
   selector:
     app: contacts
   ports:
-  - name: https
-    port: 443
+  - name: http
+    port: 80
     protocol: TCP
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: api
   namespace: contacts
   annotations:
     kubernetes.io/ingress.class: nginx
-    ingress.kubernetes.io/secure-backends: "true"
+    nginx.ingress.kubernetes.io/secure-backends: "true"
+    nginx.ingress.kubernetes.io/secure-verify-ca-secret: ca
     ingress.kubernetes.io/secure-verify-ca-secret: ca
 spec:
   tls:
@@ -80,10 +81,13 @@ spec:
   - host: minikube.local
     http:
       paths:
-      - path: /contacts
-        backend:
-          serviceName: api
-          servicePort: 443
+        - path: /contacts
+          pathType: Prefix
+          backend:
+            service:
+              name: api
+              port:
+                number: 80
 ---
 apiVersion: v1
 kind: Secret
