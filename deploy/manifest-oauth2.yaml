@@ -7,54 +7,65 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: oauth2-proxy
+    k8s-app: oauth2-proxy
   name: oauth2-proxy
   namespace: authc
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: oauth2-proxy
+      k8s-app: oauth2-proxy
   template:
     metadata:
       labels:
-        app: oauth2-proxy
+        k8s-app: oauth2-proxy
     spec:
       containers:
-      - args:
-        - --provider=github
-        - --email-domain=*
-        - --upstream=file:///dev/null
-        - --https-address=0.0.0.0:4180
-        env:
-        - name: OAUTH2_PROXY_CLIENT_ID
-          value: 788e9c977b94ac2b3b7d
-        - name: OAUTH2_PROXY_CLIENT_SECRET          
-          value: eb37dd51dcf2ac48567fc0e3b359ca8743d0ac9b
-        - name: OAUTH2_PROXY_COOKIE_SECRET
-          value: LJQqVzZY28O4hXj1DVc0lA==
-        image: quay.io/oauth2-proxy/oauth2-proxy:latest
-        imagePullPolicy: Always
-        name: oauth2-proxy
-        ports:
-        - containerPort: 4180
-          protocol: TCP
+        - args:
+            - --provider=github
+            - --email-domain=*
+            - --upstream=file:///dev/null
+            - --http-address=0.0.0.0:4180
+            #- --tls-cert-file=/etc/certs/tls.crt
+            #- --tls-key-file=/etc/certs/tls.key
+            #- --set-xauthrequest
+          env:
+            - name: OAUTH2_PROXY_CLIENT_ID
+              value: 3fd9fc862b5f3daf0bbe
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              value: e548a93eec8367d54853084ebc248052ced84e3b
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              value: LJQqVzZY28O4hXj1DVc0lA==
+          image: quay.io/oauth2-proxy/oauth2-proxy:latest
+          imagePullPolicy: Always
+          name: oauth2-proxy
+          ports:
+            - containerPort: 4180
+              protocol: TCP
+          volumeMounts:
+            - name: oauth2-proxy-tls
+              mountPath: /etc/certs
+              readOnly: true
+      volumes:
+        - name: oauth2-proxy-tls
+          secret:
+            secretName: oauth2-proxy
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: oauth2-proxy
+    k8s-app: oauth2-proxy
   name: oauth2-proxy
   namespace: authc
 spec:
   ports:
-  - name: http
-    port: 4180
-    protocol: TCP
-    targetPort: 4180
+    - name: http
+      port: 4180
+      protocol: TCP
+      targetPort: 4180
   selector:
-    app: oauth2-proxy
+    k8s-app: oauth2-proxy
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -63,18 +74,25 @@ metadata:
   namespace: authc
   annotations:
     kubernetes.io/ingress.class: nginx
+    #nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    #cert-manager.io/cluster-issuer: ca
 spec:
+  ingressClassName: nginx-oauth
+  tls:
+    - hosts:
+        - minikube.local
+      secretName: minikube
   rules:
-  - host: minikube.local
-    http:
-      paths:
-      - path: /oauth2
-        pathType: Prefix
-        backend:
-            service:
-              name: oauth2-proxy
-              port:
-                number: 4180
+    - host: minikube.local
+      http:
+        paths:
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  number: 4180
 ---
 apiVersion: v1
 kind: Secret
@@ -95,7 +113,7 @@ data:
   ca.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURMRENDQWhTZ0F3SUJBZ0lKQU5HVWFRR0d2TVNlTUEwR0NTcUdTSWIzRFFFQkN3VUFNQmd4RmpBVUJnTlYKQkFNVERXNW5jQzF3Y21sdFpYSXRZMkV3SGhjTk1UY3dOak13TVRnMU5EQTJXaGNOTXpFd016QTVNVGcxTkRBMgpXakFZTVJZd0ZBWURWUVFERXcxdVozQXRjSEpwYldWeUxXTmhNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DCkFROEFNSUlCQ2dLQ0FRRUFzaDR5TStkNmdCR0VUelhpcGswdEJTaGNZWUhNbVRLVUwrZm8rei9rZ3RrMlNYMlYKcFVXK0tVVUxITURLVUEralU1RWI2VHBSNjFBMmdYNDlRaWxIZ2VYMzdLU2E5QVVQU2srbUgzM3FscXZlQ2gvSwoxREt5L3hLZTdONmxoeDRwbVhRV3h2WGZOdWg1eGM0NVpNYW1BM010UzE5OXZGMk1DaWFNSmxMOTJNMmRNSVFMCi9hUTluMjJRYXRKcUNyYlJNZTJlSGQ5aGFnTXh4NmtvbGpCaU5ZUXpXOTQ4bytLa0xNelE2UWE5MElrcnhXb2oKZ3JEaXlidmFqT2VndWlOd3E0eTFCZ2FWSEVTVGE3eUVJYkhLU1RWck1COXFUc0Nva0RzR1p6VXlUU1JnZU45NgpLM2tkRzMrVUkwOWFraDkxVVZ6ckpzVjlXMUxvYU1vUkNmQXI0UUlEQVFBQm8za3dkekFkQmdOVkhRNEVGZ1FVCjVGcDBSL1ArM0QvZWE1Ym9HRU85OVE1VE9YY3dTQVlEVlIwakJFRXdQNEFVNUZwMFIvUCszRC9lYTVib0dFTzkKOVE1VE9YZWhIS1FhTUJneEZqQVVCZ05WQkFNVERXNW5jQzF3Y21sdFpYSXRZMkdDQ1FEUmxHa0JocnpFbmpBTQpCZ05WSFJNRUJUQURBUUgvTUEwR0NTcUdTSWIzRFFFQkN3VUFBNElCQVFDZE81aEVSRWViWjNKYjk0QzJkT2pxCkNoVmtycUl4OTgvYmFSOHppZTJXUmUzRU1YV2I3ei9rOUVGanhsRWxXQkhOL1FpdFZUZzhNeElNd0RFVGZ1TjkKcVBaRE85OE9GRXZZZWxwaTdlM0x3NVlQd2hBT1hBa2laUHFjQ0tZRlRvbFFod3kvQnpvRVpCbmdXK052VkNpWgp6My9XYmMvRmlwUmNwdGVFaUZEL2d3bUFoaFJnYlpjM0NaRHRhUmVBdWRqUjAwY3F2amlLU0d2N0dCMU4zT0xsClpvZEpTd3NBT2lDVGNBMHMwQ0FlNndHaWVOOFhBRnhiYlZhSWpkblRtNUFmWkdsZ0E2cVBjQTU0R1loVE5FTFoKZzlDODdYK2t0SDdLeEFSYndQV0RjcmJnMEI0bGFDYjE0RlRLWnYzVUQ5K2Nqb3p3QXREWXVTQUtKRWdxYnNLYgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
 type: Opaque
 ---
-apiVersion: v1     
+apiVersion: v1
 kind: Secret
 metadata:
   name: oauth2-proxy

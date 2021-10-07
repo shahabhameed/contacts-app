@@ -70,8 +70,7 @@ metadata:
   annotations:
     # https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-    #nginx.ingress.kubernetes.io/auth-tls-secret: "contacts/ca"
-    #nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+    cert-manager.io/cluster-issuer: ca
 spec:
   tls:
   - hosts:
